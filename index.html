@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Click the Cow!</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f8ff; /* Light sky blue */
+            color: #333;
+            text-align: center;
+            flex-direction: column; /* Stack elements vertically */
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .game-container {
+            background-color: #fff;
+            padding: 30px 40px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: #4a4a4a;
+            margin-bottom: 20px;
+        }
+
+        #cow-area {
+            perspective: 1000px; /* Adds depth for the 3D effect */
+            margin-bottom: 20px;
+        }
+
+        #cow-container {
+            width: 150px; /* Adjust size as needed */
+            height: 150px;
+            cursor: pointer;
+            animation: spin 10s linear infinite;
+            transform-style: preserve-3d; /* Important for children in 3D space */
+            transition: transform 0.2s ease-out; /* Smooth click feedback */
+        }
+
+        #cow-container:active {
+             transform: scale(0.95); /* Click feedback */
+        }
+
+        #cow-svg {
+            width: 100%;
+            height: 100%;
+            display: block; /* Prevents extra space below SVG */
+        }
+
+        /* Simple Cow SVG - Modify colors and shapes as desired */
+        #cow-svg .body { fill: #ffffff; stroke: #4a4a4a; stroke-width: 3; }
+        #cow-svg .spots { fill: #4a4a4a; }
+        #cow-svg .hooves { fill: #8b4513; } /* Brown */
+        #cow-svg .eyes { fill: #000000; }
+        #cow-svg .nose { fill: #ffc0cb; } /* Pink */
+
+        @keyframes spin {
+            from {
+                transform: rotateY(0deg);
+            }
+            to {
+                transform: rotateY(360deg);
+            }
+        }
+
+        #message {
+            font-size: 1.1em;
+            margin-top: 15px;
+            min-height: 1.5em; /* Prevent layout shift when message changes */
+            color: #5a5a5a;
+            font-weight: bold;
+        }
+
+        #click-info {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        #click-count {
+            font-weight: bold;
+        }
+
+        footer {
+            margin-top: 30px;
+            font-size: 0.8em;
+            color: #888;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <h1>Daily Cow Clicker</h1>
+
+        <div id="cow-area">
+            <div id="cow-container" title="Click me!">
+                <svg id="cow-svg" viewBox="0 0 100 100">
+                  <ellipse class="body" cx="50" cy="60" rx="35" ry="25"/>
+                  <circle class="body" cx="75" cy="40" r="15"/>
+                  <rect class="body" x="30" y="75" width="10" height="20" rx="3"/>
+                  <rect class="body" x="60" y="75" width="10" height="20" rx="3"/>
+                  <rect class="hooves" x="30" y="90" width="10" height="5" rx="2"/>
+                  <rect class="hooves" x="60" y="90" width="10" height="5" rx="2"/>
+                  <ellipse class="spots" cx="40" cy="65" rx="8" ry="5"/>
+                  <ellipse class="spots" cx="60" cy="55" rx="10" ry="6"/>
+                  <circle class="eyes" cx="70" cy="38" r="2"/>
+                  <circle class="eyes" cx="80" cy="38" r="2"/>
+                  <ellipse class="nose" cx="78" cy="45" rx="4" ry="3"/>
+                  <ellipse class="body" cx="68" cy="30" rx="5" ry="3" transform="rotate(-30 68 30)"/>
+                  <ellipse class="body" cx="82" cy="30" rx="5" ry="3" transform="rotate(30 82 30)"/>
+                   <path class="body" d="M20 60 Q 15 50 10 55" stroke="#4a4a4a" stroke-width="2" fill="none"/>
+                   <circle class="spots" cx="10" cy="55" r="3"/>
+                </svg>
+            </div>
+        </div>
+
+        <p id="message">Loading...</p>
+        <p id="click-info">Total Clicks: <span id="click-count">0</span></p>
+    </div>
+
+    <footer>Game state is saved in your browser's local storage.</footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const cowContainer = document.getElementById('cow-container');
+            const messageElement = document.getElementById('message');
+            const clickCountElement = document.getElementById('click-count');
+
+            const storageKeys = {
+                totalClicks: 'cowGame_totalClicks',
+                lastClickDate: 'cowGame_lastClickDate'
+            };
+
+            let totalClicks = 0;
+            let lastClickDate = null;
+
+            // --- Helper Functions ---
+            function getTodayDateString() {
+                const today = new Date();
+                const year = today.getFullYear();
+                const month = String(today.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+                const day = String(today.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            function loadGameState() {
+                const storedClicks = localStorage.getItem(storageKeys.totalClicks);
+                const storedDate = localStorage.getItem(storageKeys.lastClickDate);
+
+                totalClicks = storedClicks ? parseInt(storedClicks, 10) : 0;
+                lastClickDate = storedDate;
+
+                updateDisplay();
+            }
+
+            function saveGameState() {
+                localStorage.setItem(storageKeys.totalClicks, totalClicks.toString());
+                localStorage.setItem(storageKeys.lastClickDate, lastClickDate);
+            }
+
+            function updateDisplay() {
+                clickCountElement.textContent = totalClicks;
+                const today = getTodayDateString();
+
+                if (lastClickDate === today) {
+                    messageElement.textContent = "Moo! You've clicked today. Come back tomorrow!";
+                    cowContainer.style.cursor = 'default'; // Indicate non-clickable
+                } else {
+                    messageElement.textContent = "Click the cow for your daily dose of moo!";
+                    cowContainer.style.cursor = 'pointer';
+                }
+            }
+
+            function handleCowClick() {
+                const today = getTodayDateString();
+
+                if (lastClickDate === today) {
+                    messageElement.textContent = "Easy there! One click per day. See you tomorrow!";
+                    // Maybe add a little shake animation for feedback?
+                    cowContainer.animate([
+                        { transform: 'translateX(-3px) rotateY(calc(var(--rotation, 0deg) - 2deg))' },
+                        { transform: 'translateX(3px) rotateY(calc(var(--rotation, 0deg) + 2deg))' },
+                        { transform: 'translateX(0px) rotateY(var(--rotation, 0deg))' } // Return to current rotation
+                      ], {
+                        duration: 200,
+                        iterations: 1,
+                        // Need to capture current rotation if animation is running
+                        // This simple version might just slightly interrupt the spin
+                      });
+
+                } else {
+                    totalClicks++;
+                    lastClickDate = today;
+                    messageElement.textContent = "Moooo! You clicked the cow!";
+                    saveGameState();
+                    updateDisplay(); // Update message and disable cursor
+
+                     // Optional: Fun animation on successful click
+                    cowContainer.animate([
+                        { transform: 'scale(1.1) rotateY(calc(var(--rotation, 0deg) + 10deg))' },
+                        { transform: 'scale(1) rotateY(var(--rotation, 0deg))' }
+                    ], {
+                        duration: 300,
+                        easing: 'ease-out'
+                    });
+                }
+            }
+
+            // --- Initialization ---
+            cowContainer.addEventListener('click', handleCowClick);
+            loadGameState(); // Load state and set initial message
+
+            // Update the CSS variable --rotation frequently for smoother interaction with click animations
+             // This part is tricky because the CSS animation runs independently.
+             // A simpler approach is to accept that click animations might briefly override the spin.
+             // For perfect synchronization, you'd need a JS-driven animation loop (more complex).
+
+        });
+    </script>
+
+</body>
+</html>
