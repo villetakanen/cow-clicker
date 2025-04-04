@@ -3,7 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Click the Cow!</title>
+    <title>Click the 3D Cow!</title>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.163.0/build/three.module.js"
+            }
+        }
+    </script>
     <style>
         body {
             font-family: sans-serif;
@@ -11,13 +18,14 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background-color: #f0f8ff; /* Light sky blue */
+            background-color: #e0f2f7; /* Lighter cyan */
             color: #333;
             text-align: center;
             flex-direction: column; /* Stack elements vertically */
             margin: 0;
             padding: 20px;
             box-sizing: border-box;
+            overflow: hidden; /* Prevent scrollbars from renderer */
         }
 
         .game-container {
@@ -32,59 +40,39 @@
 
         h1 {
             color: #4a4a4a;
-            margin-bottom: 20px;
-        }
-
-        #cow-area {
-            perspective: 1000px; /* Adds depth for the 3D effect */
-            margin-bottom: 20px;
+            margin-bottom: 10px; /* Reduced margin */
         }
 
         #cow-container {
-            width: 150px; /* Adjust size as needed */
-            height: 150px;
+            width: 250px; /* Adjust size for 3D view */
+            height: 200px; /* Adjust size for 3D view */
+            margin-bottom: 15px; /* Reduced margin */
             cursor: pointer;
-            animation: spin 10s linear infinite;
-            transform-style: preserve-3d; /* Important for children in 3D space */
-            transition: transform 0.2s ease-out; /* Smooth click feedback */
+            background-color: #f0f8ff; /* Light background for canvas */
+            border-radius: 8px;
+            position: relative; /* Needed for potential overlays or loading text */
+            overflow: hidden; /* Ensure canvas stays within bounds */
         }
 
-        #cow-container:active {
-             transform: scale(0.95); /* Click feedback */
+        #cow-container canvas {
+            display: block; /* Prevent extra space */
         }
 
-        #cow-svg {
-            width: 100%;
-            height: 100%;
-            display: block; /* Prevents extra space below SVG */
-        }
-
-        /* Simple Cow SVG - Modify colors and shapes as desired */
-        #cow-svg .body { fill: #ffffff; stroke: #4a4a4a; stroke-width: 3; }
-        #cow-svg .spots { fill: #4a4a4a; }
-        #cow-svg .hooves { fill: #8b4513; } /* Brown */
-        #cow-svg .eyes { fill: #000000; }
-        #cow-svg .nose { fill: #ffc0cb; } /* Pink */
-
-        @keyframes spin {
-            from {
-                transform: rotateY(0deg);
-            }
-            to {
-                transform: rotateY(360deg);
-            }
+         #cow-container:active {
+             /* Optional: Slight indication - maybe less needed with 3D */
+             /* transform: scale(0.99); */
         }
 
         #message {
             font-size: 1.1em;
-            margin-top: 15px;
-            min-height: 1.5em; /* Prevent layout shift when message changes */
+            margin-top: 10px; /* Reduced margin */
+            min-height: 1.5em; /* Prevent layout shift */
             color: #5a5a5a;
             font-weight: bold;
         }
 
         #click-info {
-            margin-top: 20px;
+            margin-top: 15px; /* Reduced margin */
             font-size: 0.9em;
             color: #666;
         }
@@ -104,132 +92,260 @@
 <body>
 
     <div class="game-container">
-        <h1>Daily Cow Clicker</h1>
+        <h1>Daily 3D Cow Clicker</h1>
 
-        <div id="cow-area">
-            <div id="cow-container" title="Click me!">
-                <svg id="cow-svg" viewBox="0 0 100 100">
-                  <ellipse class="body" cx="50" cy="60" rx="35" ry="25"/>
-                  <circle class="body" cx="75" cy="40" r="15"/>
-                  <rect class="body" x="30" y="75" width="10" height="20" rx="3"/>
-                  <rect class="body" x="60" y="75" width="10" height="20" rx="3"/>
-                  <rect class="hooves" x="30" y="90" width="10" height="5" rx="2"/>
-                  <rect class="hooves" x="60" y="90" width="10" height="5" rx="2"/>
-                  <ellipse class="spots" cx="40" cy="65" rx="8" ry="5"/>
-                  <ellipse class="spots" cx="60" cy="55" rx="10" ry="6"/>
-                  <circle class="eyes" cx="70" cy="38" r="2"/>
-                  <circle class="eyes" cx="80" cy="38" r="2"/>
-                  <ellipse class="nose" cx="78" cy="45" rx="4" ry="3"/>
-                  <ellipse class="body" cx="68" cy="30" rx="5" ry="3" transform="rotate(-30 68 30)"/>
-                  <ellipse class="body" cx="82" cy="30" rx="5" ry="3" transform="rotate(30 82 30)"/>
-                   <path class="body" d="M20 60 Q 15 50 10 55" stroke="#4a4a4a" stroke-width="2" fill="none"/>
-                   <circle class="spots" cx="10" cy="55" r="3"/>
-                </svg>
+        <div id="cow-container" title="Click me!">
             </div>
-        </div>
 
-        <p id="message">Loading...</p>
+        <p id="message">Loading 3D Cow...</p>
         <p id="click-info">Total Clicks: <span id="click-count">0</span></p>
     </div>
 
-    <footer>Game state is saved in your browser's local storage.</footer>
+    <footer>Game state is saved in your browser's local storage. 3D library (Three.js) loaded via CDN.</footer>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const cowContainer = document.getElementById('cow-container');
-            const messageElement = document.getElementById('message');
-            const clickCountElement = document.getElementById('click-count');
+    <script type="module">
+        import * as THREE from 'three';
 
-            const storageKeys = {
-                totalClicks: 'cowGame_totalClicks',
-                lastClickDate: 'cowGame_lastClickDate'
-            };
+        // --- Game Logic Variables ---
+        const cowContainer = document.getElementById('cow-container');
+        const messageElement = document.getElementById('message');
+        const clickCountElement = document.getElementById('click-count');
 
-            let totalClicks = 0;
-            let lastClickDate = null;
+        const storageKeys = {
+            totalClicks: 'cowGame_totalClicks_3d', // Use different keys if needed
+            lastClickDate: 'cowGame_lastClickDate_3d'
+        };
 
-            // --- Helper Functions ---
-            function getTodayDateString() {
-                const today = new Date();
-                const year = today.getFullYear();
-                const month = String(today.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
-                const day = String(today.getDate()).padStart(2, '0');
-                return `${year}-${month}-${day}`;
+        let totalClicks = 0;
+        let lastClickDate = null;
+        let cowGroup; // To hold the 3D cow object
+
+        // --- Three.js Setup ---
+        let scene, camera, renderer;
+
+        function initThreeJS() {
+            const container = document.getElementById('cow-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            // 1. Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf0f8ff); // Match container background
+
+            // 2. Camera
+            camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 100);
+            camera.position.set(0, 1.5, 4); // Adjust position to view the cow well
+            camera.lookAt(0, 0.5, 0); // Look slightly down towards the cow center
+
+            // 3. Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(window.devicePixelRatio); // For sharper rendering on high DPI screens
+            container.appendChild(renderer.domElement);
+
+            // 4. Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7); // Softer ambient
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0); // Stronger directional
+            directionalLight.position.set(3, 5, 2);
+            directionalLight.castShadow = false; // Keep it simple, no shadows for now
+            scene.add(directionalLight);
+
+            // 5. Create the Cow
+            cowGroup = createCow();
+            scene.add(cowGroup);
+
+             // Initial message update now that 3D might be ready
+            updateDisplay();
+
+            // 6. Start Animation Loop
+            animate();
+        }
+
+        function createCow() {
+            const group = new THREE.Group();
+
+            // Materials - Using Lambert for non-shiny + flat shading
+            const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true }); // White body
+            const spotMaterial = new THREE.MeshLambertMaterial({ color: 0x4a4a4a, flatShading: true }); // Dark spots
+            const hoofMaterial = new THREE.MeshLambertMaterial({ color: 0x8b4513, flatShading: true }); // Brown hooves
+            const noseMaterial = new THREE.MeshLambertMaterial({ color: 0xffc0cb, flatShading: true }); // Pink nose
+            const eyeMaterial = new THREE.MeshLambertMaterial({ color: 0x000000, flatShading: true }); // Black eyes
+
+
+            // Simple geometric parts - using mostly boxes for "straight vectors"
+            // Body (adjust dimensions as needed)
+            const bodyGeometry = new THREE.BoxGeometry(2, 1, 1.2);
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = 0.5; // Raise body slightly
+            group.add(body);
+
+            // Head
+            const headGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+            const head = new THREE.Mesh(headGeometry, bodyMaterial);
+            head.position.set(1.2, 0.9, 0); // Position relative to body
+            group.add(head);
+
+            // Legs (simple cylinders or boxes)
+            const legGeometry = new THREE.BoxGeometry(0.3, 0.8, 0.3); // Use Box for vector look
+            const legPositions = [
+                { x: 0.7, y: -0.3, z: 0.4 }, { x: 0.7, y: -0.3, z: -0.4 },
+                { x: -0.7, y: -0.3, z: 0.4 }, { x: -0.7, y: -0.3, z: -0.4 }
+            ];
+            legPositions.forEach(pos => {
+                const leg = new THREE.Mesh(legGeometry, bodyMaterial); // Use body material for now
+                leg.position.set(pos.x, pos.y, pos.z);
+                group.add(leg);
+                // Hooves (small boxes at bottom of legs)
+                const hoofGeometry = new THREE.BoxGeometry(0.32, 0.15, 0.32);
+                const hoof = new THREE.Mesh(hoofGeometry, hoofMaterial);
+                hoof.position.set(pos.x, pos.y - 0.45, pos.z); // Adjust y based on leg height
+                 group.add(hoof);
+            });
+
+             // Nose
+            const noseGeometry = new THREE.BoxGeometry(0.3, 0.2, 0.1);
+            const nose = new THREE.Mesh(noseGeometry, noseMaterial);
+            nose.position.set(1.6, 0.8, 0); // On the front of the head
+            group.add(nose);
+
+             // Eyes (small boxes or spheres)
+             const eyeGeometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+             const eyeL = new THREE.Mesh(eyeGeometry, eyeMaterial);
+             eyeL.position.set(1.55, 1.0, 0.25);
+             group.add(eyeL);
+             const eyeR = new THREE.Mesh(eyeGeometry, eyeMaterial);
+             eyeR.position.set(1.55, 1.0, -0.25);
+             group.add(eyeR);
+
+             // Simple Spot
+             const spotGeometry = new THREE.BoxGeometry(0.5, 0.3, 0.05); // Flat box
+             const spot = new THREE.Mesh(spotGeometry, spotMaterial);
+             spot.position.set(-0.5, 0.7, 0.61); // Place on side of body
+             spot.rotation.y = Math.PI / 15; // Slight angle
+             group.add(spot);
+
+             // Tail (thin cylinder) - Optional
+             const tailGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.6, 6);
+             const tail = new THREE.Mesh(tailGeometry, spotMaterial); // Use spot color
+             tail.position.set(-1.2, 0.6, 0);
+             tail.rotation.z = Math.PI / 4; // Angle it down
+             group.add(tail);
+
+
+            group.scale.set(0.8, 0.8, 0.8); // Scale the whole cow down a bit if needed
+            return group;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Rotate the cow
+            if (cowGroup) {
+                cowGroup.rotation.y += 0.01; // Adjust speed as needed
             }
 
-            function loadGameState() {
-                const storedClicks = localStorage.getItem(storageKeys.totalClicks);
-                const storedDate = localStorage.getItem(storageKeys.lastClickDate);
+            renderer.render(scene, camera);
+        }
 
-                totalClicks = storedClicks ? parseInt(storedClicks, 10) : 0;
-                lastClickDate = storedDate;
+        // --- Game Logic Functions (mostly same as before) ---
+        function getTodayDateString() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
 
-                updateDisplay();
+        function loadGameState() {
+            const storedClicks = localStorage.getItem(storageKeys.totalClicks);
+            const storedDate = localStorage.getItem(storageKeys.lastClickDate);
+
+            totalClicks = storedClicks ? parseInt(storedClicks, 10) : 0;
+            lastClickDate = storedDate;
+            // Don't update display here yet, wait for 3D init
+        }
+
+        function saveGameState() {
+            localStorage.setItem(storageKeys.totalClicks, totalClicks.toString());
+            if (lastClickDate) { // Only save date if it's set
+                 localStorage.setItem(storageKeys.lastClickDate, lastClickDate);
             }
+        }
 
-            function saveGameState() {
-                localStorage.setItem(storageKeys.totalClicks, totalClicks.toString());
-                localStorage.setItem(storageKeys.lastClickDate, lastClickDate);
+        function updateDisplay() {
+             if (!clickCountElement || !messageElement) return; // Ensure elements exist
+
+            clickCountElement.textContent = totalClicks;
+            const today = getTodayDateString();
+
+            if (lastClickDate === today) {
+                messageElement.textContent = "Moo! You've clicked today. Come back tomorrow!";
+                cowContainer.style.cursor = 'default';
+            } else {
+                messageElement.textContent = "Click the 3D cow for your daily moo!";
+                cowContainer.style.cursor = 'pointer';
             }
+        }
 
-            function updateDisplay() {
-                clickCountElement.textContent = totalClicks;
-                const today = getTodayDateString();
+        function handleCowClick() {
+            const today = getTodayDateString();
 
-                if (lastClickDate === today) {
-                    messageElement.textContent = "Moo! You've clicked today. Come back tomorrow!";
-                    cowContainer.style.cursor = 'default'; // Indicate non-clickable
-                } else {
-                    messageElement.textContent = "Click the cow for your daily dose of moo!";
-                    cowContainer.style.cursor = 'pointer';
+            if (lastClickDate === today) {
+                messageElement.textContent = "Easy there! One click per day.";
+                // Optional: Add 3D feedback (e.g., slight scale or jiggle)
+                if (cowGroup) {
+                     // Simple jiggle example
+                    const startScale = cowGroup.scale.clone();
+                    const jiggleScale = startScale.clone().multiplyScalar(0.98);
+                    new Promise(resolve => {
+                         cowGroup.scale.copy(jiggleScale);
+                         setTimeout(resolve, 80);
+                     }).then(() => {
+                         cowGroup.scale.copy(startScale);
+                     });
                 }
+            } else {
+                totalClicks++;
+                lastClickDate = today;
+                messageElement.textContent = "Moooo! You clicked the 3D cow!";
+                saveGameState();
+                updateDisplay(); // Update message and cursor
+
+                 // Optional: Add 3D feedback
+                 if (cowGroup) {
+                    const startScale = cowGroup.scale.clone();
+                    const popScale = startScale.clone().multiplyScalar(1.1);
+                     new Promise(resolve => {
+                         cowGroup.scale.copy(popScale);
+                         setTimeout(resolve, 150);
+                     }).then(() => {
+                         cowGroup.scale.copy(startScale);
+                     });
+                 }
             }
+        }
 
-            function handleCowClick() {
-                const today = getTodayDateString();
+         // Handle window resize
+        function onWindowResize() {
+            if (!camera || !renderer || !cowContainer) return;
+            const width = cowContainer.clientWidth;
+            const height = cowContainer.clientHeight;
 
-                if (lastClickDate === today) {
-                    messageElement.textContent = "Easy there! One click per day. See you tomorrow!";
-                    // Maybe add a little shake animation for feedback?
-                    cowContainer.animate([
-                        { transform: 'translateX(-3px) rotateY(calc(var(--rotation, 0deg) - 2deg))' },
-                        { transform: 'translateX(3px) rotateY(calc(var(--rotation, 0deg) + 2deg))' },
-                        { transform: 'translateX(0px) rotateY(var(--rotation, 0deg))' } // Return to current rotation
-                      ], {
-                        duration: 200,
-                        iterations: 1,
-                        // Need to capture current rotation if animation is running
-                        // This simple version might just slightly interrupt the spin
-                      });
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        }
 
-                } else {
-                    totalClicks++;
-                    lastClickDate = today;
-                    messageElement.textContent = "Moooo! You clicked the cow!";
-                    saveGameState();
-                    updateDisplay(); // Update message and disable cursor
 
-                     // Optional: Fun animation on successful click
-                    cowContainer.animate([
-                        { transform: 'scale(1.1) rotateY(calc(var(--rotation, 0deg) + 10deg))' },
-                        { transform: 'scale(1) rotateY(var(--rotation, 0deg))' }
-                    ], {
-                        duration: 300,
-                        easing: 'ease-out'
-                    });
-                }
-            }
+        // --- Initialization ---
+        window.addEventListener('resize', onWindowResize, false);
+        cowContainer.addEventListener('click', handleCowClick);
 
-            // --- Initialization ---
-            cowContainer.addEventListener('click', handleCowClick);
-            loadGameState(); // Load state and set initial message
+        loadGameState(); // Load clicks/date data first
+        initThreeJS();   // Then initialize the 3D scene (which calls updateDisplay)
 
-            // Update the CSS variable --rotation frequently for smoother interaction with click animations
-             // This part is tricky because the CSS animation runs independently.
-             // A simpler approach is to accept that click animations might briefly override the spin.
-             // For perfect synchronization, you'd need a JS-driven animation loop (more complex).
-
-        });
     </script>
 
 </body>
